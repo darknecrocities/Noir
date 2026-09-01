@@ -3,12 +3,10 @@
 import argparse
 import sys
 import time
-from pathlib import Path
-from PySide6.QtWidgets import QApplication
-
+# Ensure torch and core subsystems load before PySide6 to avoid Shiboken hook inspection latency
+import torch
 from noir.core.engine import NoirEngine
 from noir.core.logging import setup_logging
-from noir.ui.main_window import NoirMainWindow
 
 
 def main() -> None:
@@ -49,6 +47,9 @@ def main() -> None:
             sys.exit(0)
 
     # 4. Native Desktop GUI Mode
+    from PySide6.QtWidgets import QApplication
+    from noir.ui.main_window import NoirMainWindow
+
     app = QApplication(sys.argv)
     app.setApplicationName("Project NOIR")
     app.setStyle("Fusion")
