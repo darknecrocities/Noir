@@ -102,8 +102,8 @@ class CheckpointManager:
                 "rng_states": {
                     "python": random.getstate(),
                     "numpy": np.random.get_state(),
-                    "torch": torch.get_rng_state(),
-                    "torch_cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+                    "torch": torch.get_rng_state().cpu(),
+                    "torch_cuda": [t.cpu() for t in torch.cuda.get_rng_state_all()] if torch.cuda.is_available() else None,
                 },
                 "emotion_state": emotion_state or {},
                 "env_state": env_state or {},
@@ -213,14 +213,21 @@ class CheckpointManager:
 
             # Restore RNG states
             rng = training_state.get("rng_states", {})
-            if "python" in rng:
+            if "python" in rng and rng["python"]:
                 random.setstate(rng["python"])
-            if "numpy" in rng:
+            if "numpy" in rng and rng["numpy"] is not None:
                 np.random.set_state(rng["numpy"])
-            if "torch" in rng:
-                torch.set_rng_state(rng["torch"])
+            if "torch" in rng and rng["torch"] is not None:
+                torch_rng = rng["torch"]
+                if isinstance(torch_rng, torch.Tensor):
+                    torch_rng = torch_rng.cpu()
+                torch.set_rng_state(torch_rng)
             if "torch_cuda" in rng and torch.cuda.is_available() and rng["torch_cuda"] is not None:
-                torch.cuda.set_rng_state_all(rng["torch_cuda"])
+                try:
+                    cuda_rng = [t.cpu() if isinstance(t, torch.Tensor) else t for t in rng["torch_cuda"]] if isinstance(rng["torch_cuda"], (list, tuple)) else rng["torch_cuda"]
+                    torch.cuda.set_rng_state_all(cuda_rng)
+                except Exception as ce:
+                    logger.debug("CUDA RNG restore notice: %s", ce)
 
         # 3. Read metadata
         meta_file = ckpt_dir / "meta.json"

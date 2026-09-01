@@ -529,7 +529,19 @@ class NoirEngine:
 
         logger.info("Recovering previous session: Exp=%s, Mode=%s, Step=%d", exp_id, mode, recovery_info["step"])
 
-        if mode == "supervised":
+        if mode in ("open_web_llm", "llm", "autonomous"):
+            self.start_open_web_llm_experiment(
+                name=config.get("name", f"Recovered {exp_id}"),
+                vocab_size=config.get("vocab_size", 256),
+                block_size=config.get("block_size", 64),
+                embed_dim=config.get("embed_dim", 128),
+                n_layers=config.get("n_layers", 4),
+                n_heads=config.get("n_heads", 4),
+                learning_rate=config.get("learning_rate", 0.0005),
+                batch_size=config.get("batch_size", 16),
+                max_steps=config.get("max_steps", 50000),
+            )
+        elif mode == "supervised":
             self.start_supervised_experiment(
                 name=config.get("name", f"Recovered {exp_id}"),
                 dataset_name=config.get("dataset", "digits"),

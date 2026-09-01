@@ -32,7 +32,11 @@ class UIEventBridge(QObject):
     event_received = Signal(object)
 
     def dispatch(self, event: NoirEvent) -> None:
-        self.event_received.emit(event)
+        try:
+            self.event_received.emit(event)
+        except RuntimeError:
+            # Underlying C++ QObject was already deleted during window teardown
+            pass
 
 
 class NoirMainWindow(QMainWindow):
@@ -271,5 +275,9 @@ class NoirMainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """Graceful shutdown on window close."""
+        try:
+            self.engine.event_bus.unsubscribe(None, self.bridge.dispatch)
+        except Exception:
+            pass
         self.engine.shutdown()
         event.accept()

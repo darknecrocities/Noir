@@ -89,17 +89,28 @@ class EventBus:
             # Global handlers
             handlers_to_call.extend(self._subscribers.get(None, []))
 
+        dead_handlers = []
         for handler in handlers_to_call:
             try:
                 handler(event)
+            except RuntimeError as re:
+                if "Internal C++ object" in str(re) or "already deleted" in str(re):
+                    dead_handlers.append(handler)
+                else:
+                    logger.debug("RuntimeError in event handler: %s", re)
             except Exception as e:
-                logger.error(
-                    "Error executing event handler %s for event %s: %s",
-                    handler,
-                    event.event_type.value,
-                    e,
-                    exc_info=True,
+                logger.debug(
+                    "Error executing event handler for event %s: %s",
+                    getattr(event.event_type, "value", str(event.event_type)),
+                    str(e),
                 )
+
+        if dead_handlers:
+            with self._lock:
+                for h in dead_handlers:
+                    for et in list(self._subscribers.keys()):
+                        if h in self._subscribers[et]:
+                            self._subscribers[et].remove(h)
 
     def _worker_loop(self) -> None:
         """Background thread worker pulling from queue."""
