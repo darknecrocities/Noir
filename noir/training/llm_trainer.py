@@ -66,6 +66,7 @@ class OpenWebLLMTrainer(BaseTrainer):
         self.active_article_url = "https://en.wikipedia.org"
         self.latest_val_loss = 0.0
         self.latest_val_perplexity = 0.0
+        self._consecutive_overfit_count = 0
 
         logger.info(
             "OpenWebLLMTrainer initialized on device: %s (%s)",
@@ -102,6 +103,7 @@ class OpenWebLLMTrainer(BaseTrainer):
 
             logits, loss = self.model(inputs, targets=targets)
             loss_val = float(loss.item())
+            self.latest_train_loss = loss_val
 
             # 3. Backpropagation & Weight Update on GPU
             loss.backward()
@@ -178,7 +180,7 @@ class OpenWebLLMTrainer(BaseTrainer):
         logger.info("Open Web LLM Training loop concluded.")
 
     def _evaluate_validation_loss(self) -> None:
-        """Evaluate next-token prediction loss on unseen out-of-sample internet text."""
+        """Evaluate next-token prediction loss on unseen out-of-sample internet text with Overfitting Guardrail."""
         self.model.eval()
         try:
             with torch.no_grad():
@@ -193,6 +195,21 @@ class OpenWebLLMTrainer(BaseTrainer):
                 _, v_loss = self.model(val_x, targets=val_y)
                 self.latest_val_loss = float(v_loss.item())
                 self.latest_val_perplexity = math.exp(min(self.latest_val_loss, 15.0))
+
+                # Overfitting Guardrail: Detect widening generalization gap
+                train_loss = getattr(self, "latest_train_loss", self.latest_val_loss)
+                gen_gap = self.latest_val_loss - train_loss
+                if gen_gap > 0.65 or self._consecutive_overfit_count >= 3:
+                    logger.info(
+                        "[OVERFITTING GUARDRAIL ACTIVATED] Generalization gap detected (+%.4f). Evicting memorized buffer & streaming fresh internet knowledge.",
+                        gen_gap,
+                    )
+                    self.streamer.force_replenish(evict_old=True)
+                    self._consecutive_overfit_count = 0
+                elif gen_gap > 0.35:
+                    self._consecutive_overfit_count += 1
+                else:
+                    self._consecutive_overfit_count = max(0, self._consecutive_overfit_count - 1)
         except Exception as e:
             logger.debug("Validation eval error: %s", e)
         finally:

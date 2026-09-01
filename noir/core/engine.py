@@ -556,11 +556,17 @@ class NoirEngine:
                 learning_rate=config.get("learning_rate", 0.0003),
             )
 
+        # Pause trainer during weight restoration to prevent in-place mutation race conditions
+        if self.trainer:
+            self.trainer.pause()
+
         # Restore weights & state
         self.load_checkpoint(ckpt_path)
 
         if action == "load_only":
             self.pause_training()
+        elif self.trainer and action == "resume":
+            self.trainer.resume()
 
         return exp_id
 

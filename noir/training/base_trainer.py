@@ -67,12 +67,20 @@ class BaseTrainer(ABC):
             self.lifecycle.transition_to(LifecycleState.PAUSED)
             logger.info("Training paused at step %d", self.global_step)
 
+    def pause(self) -> None:
+        """Alias for pause_training."""
+        self.pause_training()
+
     def resume_training(self) -> None:
         """Resume paused training."""
         if self.lifecycle.current_state == LifecycleState.PAUSED:
             self._pause_event.set()
             self.lifecycle.transition_to(LifecycleState.RUNNING)
             logger.info("Training resumed at step %d", self.global_step)
+
+    def resume(self) -> None:
+        """Alias for resume_training."""
+        self.resume_training()
 
     def stop_training(self, wait: bool = True) -> None:
         """Signal training loop to terminate cleanly."""

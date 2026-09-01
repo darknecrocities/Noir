@@ -84,8 +84,9 @@ class AffectiveEngine:
             target_confidence = 0.45 * loss_factor + 0.35 * (1.0 - u_t) + 0.20 * max(accuracy, conf_pred)
             c_t = 0.85 * self.state.confidence + 0.15 * target_confidence
 
-            # Frustration grows with loss stagnation or high plateauing loss
-            f_t = self.state.frustration * self.frustration_decay + (0.08 * min(5, self._loss_stagnation_count) / 5.0)
+            # Frustration grows when loss is high and stagnating, but decays when model is in high-confidence convergence (loss < 1.8)
+            stagnation_weight = float(np.clip((loss - 1.5) / 2.0, 0.0, 1.0))
+            f_t = self.state.frustration * self.frustration_decay + (0.08 * stagnation_weight * min(5, self._loss_stagnation_count) / 5.0)
 
             # Satisfaction tracks steady loss reductions and high accuracy
             s_t = 0.85 * self.state.satisfaction + 0.15 * (0.5 * loss_factor + 0.5 * max(0.0, min(1.0, loss_delta * 4.0)))

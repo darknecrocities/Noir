@@ -214,12 +214,17 @@ class NoirMainWindow(QMainWindow):
         if event.event_type == EventType.WEIGHTS_UPDATED:
             loss = event.payload.get("loss")
             metrics = event.payload.get("metrics", {})
+            val_loss = metrics.get("val_loss")
             if loss is not None:
-                self.dashboard_view.metrics_panel.add_loss_point(event.training_step, float(loss))
+                self.dashboard_view.metrics_panel.add_loss_point(
+                    event.training_step,
+                    float(loss),
+                    float(val_loss) if val_loss is not None else None,
+                )
             if "train_acc" in metrics:
                 self.dashboard_view.metrics_panel.add_reward_point(event.training_step, metrics["train_acc"])
             elif "perplexity" in metrics:
-                # For LLM training: display log(perplexity) as metric curve
+                # For LLM training: display perplexity as metric curve
                 self.dashboard_view.metrics_panel.add_reward_point(event.training_step, min(100.0, float(metrics["perplexity"])))
 
             if "article" in metrics:
