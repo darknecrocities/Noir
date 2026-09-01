@@ -29,6 +29,7 @@ from noir.storage.checkpoint_manager import CheckpointManager
 from noir.storage.database import DatabaseManager
 from noir.storage.experiment_repository import ExperimentRepository
 from noir.storage.metrics_repository import MetricsRepository
+from noir.reporting.report_generator import TrainingReportGenerator
 from noir.storage.recovery import RecoveryManager
 from noir.strategy.llm_provider import create_llm_provider
 from noir.strategy.strategist import Strategist
@@ -426,6 +427,30 @@ class NoirEngine:
             metrics=self.trainer.latest_metrics,
             tag=tag or "manual",
         )
+
+        # Generate human-readable and ELI5 plain-text summary Markdown files
+        try:
+            resources = []
+            if hasattr(self.trainer, "streamer") and hasattr(self.trainer.streamer, "get_resource_history"):
+                resources = self.trainer.streamer.get_resource_history()
+
+            sample_text = getattr(self.trainer, "latest_generated_text", None)
+            device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+
+            TrainingReportGenerator.save_report_files(
+                experiment_id=self.current_experiment_id,
+                step=self.trainer.global_step,
+                epoch=self.trainer.current_epoch,
+                metrics=self.trainer.latest_metrics,
+                emotion_state=emotion_state,
+                resources=resources,
+                generated_sample=sample_text,
+                device_name=device_name,
+                target_dirs=[path, path.parent.parent / "latest"],
+                tag=tag or "manual",
+            )
+        except Exception as re:
+            logger.debug("Report generation notice: %s", re)
 
         self.event_bus.publish(
             NoirEvent.create(

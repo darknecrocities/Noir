@@ -168,7 +168,11 @@ class OpenWebLLMTrainer(BaseTrainer):
                     torch.cuda.memory_allocated() / (1024 * 1024) if self.device.type == "cuda" else 0.0,
                 )
 
-            # High-performance pacing
+            # 9. Periodic GPU memory optimization and clean single-stream pacing
+            if self.device.type == "cuda" and step % 50 == 0:
+                torch.cuda.empty_cache()
+
+            # Pacing for single-stream stability
             time.sleep(0.01)
 
         logger.info("Open Web LLM Training loop concluded.")
