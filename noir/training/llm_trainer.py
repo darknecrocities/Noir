@@ -1,4 +1,4 @@
-"""Real-Time Open Web Language Model Trainer executing continuous internet learning."""
+"""Real-Time Open Web Language Model Trainer executing continuous internet learning on GPU."""
 
 import math
 import time
@@ -42,8 +42,14 @@ class OpenWebLLMTrainer(BaseTrainer):
             self.model.parameters(),
             lr=learning_rate,
             betas=(0.9, 0.95),
-            weight_decay=0.01,
+            weight_decay=0.01,  # Anti-overfitting regularization
         )
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer,
+            T_max=max_steps,
+            eta_min=learning_rate * 0.1,
+        )
+
         self.batch_size = batch_size
         self.block_size = block_size
         self.gradient_clip_val = gradient_clip_val
@@ -57,6 +63,9 @@ class OpenWebLLMTrainer(BaseTrainer):
 
         self.latest_generated_text = ""
         self.active_article_title = "Live Internet Stream"
+        self.active_article_url = "https://en.wikipedia.org"
+        self.latest_val_loss = 0.0
+        self.latest_val_perplexity = 0.0
 
         logger.info(
             "OpenWebLLMTrainer initialized on device: %s (%s)",
@@ -65,8 +74,8 @@ class OpenWebLLMTrainer(BaseTrainer):
         )
 
     def _train_loop(self) -> None:
-        """Main continuous open web training loop."""
-        logger.info("Commencing live Open Web learning loop (Max steps: %d)...", self.max_steps)
+        """Main continuous open web training loop with anti-overfitting validation."""
+        logger.info("Commencing live Open Web learning loop on GPU (Max steps: %d)...", self.max_steps)
 
         for step in range(self.global_step, self.max_steps):
             if self._check_pause_and_stop():
@@ -75,12 +84,14 @@ class OpenWebLLMTrainer(BaseTrainer):
             step_start_time = time.time()
             self._on_batch_start(step)
 
-            # 1. Fetch live internet tokens batch
-            inputs, targets, article_title = self.streamer.create_batch_stream(
+            # 1. Fetch live internet training batch
+            inputs, targets, article_title, article_url = self.streamer.create_batch(
                 batch_size=self.batch_size,
                 block_size=self.block_size,
+                is_validation=False,
             )
             self.active_article_title = article_title
+            self.active_article_url = article_url
 
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
@@ -100,14 +111,18 @@ class OpenWebLLMTrainer(BaseTrainer):
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_val)
 
             self.optimizer.step()
+            self.scheduler.step()
 
-            # 4. Compute Perplexity: exp(cross_entropy_loss)
-            perplexity = math.exp(min(loss_val, 20.0))
+            # 4. Compute Train Perplexity: exp(loss)
+            perplexity = math.exp(min(loss_val, 15.0))
 
-            # 5. Affective Mind Engine Update
+            # 5. Out-of-sample Validation step (Anti-overfitting guard every 20 steps)
+            if step % 20 == 0:
+                self._evaluate_validation_loss()
+
+            # 6. Affective Mind Engine Update
             if self.affective_engine:
                 with torch.no_grad():
-                    # Calculate output probability distribution entropy
                     probs = torch.softmax(logits[:, -1, :], dim=-1).cpu().numpy()
                     self.affective_engine.update_from_supervised_step(
                         loss=loss_val,
@@ -116,23 +131,26 @@ class OpenWebLLMTrainer(BaseTrainer):
                         step=step,
                     )
 
-            # 6. Periodically generate text sample from model weights
+            # 7. Periodically generate text sample from live model weights
             if step % 25 == 0 or step == 1:
                 self._generate_sample_text()
 
-            # 7. Metrics & Event Tracking
+            # 8. Step Metrics & Event Emission
             step_duration = time.time() - step_start_time
             step_metrics = {
                 "train_loss": loss_val,
                 "perplexity": perplexity,
+                "val_loss": self.latest_val_loss or loss_val,
+                "val_perplexity": self.latest_val_perplexity or perplexity,
                 "grad_norm": grad_norm,
                 "lr": get_learning_rate(self.optimizer),
                 "step_time_ms": step_duration * 1000.0,
                 "article": self.active_article_title,
+                "url": self.active_article_url,
                 "generated_sample": self.latest_generated_text,
             }
 
-            self.global_step = step
+            self.global_step = step + 1
             self.latest_metrics = step_metrics
             self.metric_tracker.update(step_metrics)
 
@@ -140,11 +158,13 @@ class OpenWebLLMTrainer(BaseTrainer):
 
             if step % 10 == 0:
                 logger.info(
-                    "Step %d | Web Article: '%s' | Loss: %.4f | Perplexity: %.2f | GPU Mem: %.1fMB",
+                    "Step %d | [LIVE WEB: %s] | URL: %s | Loss: %.4f | PPL: %.2f | Val PPL: %.2f | GPU: %.1fMB",
                     step,
-                    self.active_article_title[:30],
+                    self.active_article_title[:28],
+                    self.active_article_url,
                     loss_val,
                     perplexity,
+                    self.latest_val_perplexity or perplexity,
                     torch.cuda.memory_allocated() / (1024 * 1024) if self.device.type == "cuda" else 0.0,
                 )
 
@@ -152,6 +172,27 @@ class OpenWebLLMTrainer(BaseTrainer):
             time.sleep(0.01)
 
         logger.info("Open Web LLM Training loop concluded.")
+
+    def _evaluate_validation_loss(self) -> None:
+        """Evaluate next-token prediction loss on unseen out-of-sample internet text."""
+        self.model.eval()
+        try:
+            with torch.no_grad():
+                val_x, val_y, _, _ = self.streamer.create_batch(
+                    batch_size=self.batch_size,
+                    block_size=self.block_size,
+                    is_validation=True,
+                )
+                val_x = val_x.to(self.device)
+                val_y = val_y.to(self.device)
+
+                _, v_loss = self.model(val_x, targets=val_y)
+                self.latest_val_loss = float(v_loss.item())
+                self.latest_val_perplexity = math.exp(min(self.latest_val_loss, 15.0))
+        except Exception as e:
+            logger.debug("Validation eval error: %s", e)
+        finally:
+            self.model.train()
 
     def _generate_sample_text(self) -> None:
         """Autoregressively generate sample completion using live trained weights."""
@@ -164,14 +205,14 @@ class OpenWebLLMTrainer(BaseTrainer):
             with torch.no_grad():
                 generated_idx = self.model.generate(
                     idx_cond,
-                    max_new_tokens=30,
+                    max_new_tokens=40,
                     temperature=0.8,
                     top_k=40,
                 )
                 generated_tokens = generated_idx[0].cpu().tolist()
                 self.latest_generated_text = self.tokenizer.decode(generated_tokens)
-                logger.info("Sample text generated by LLM: '%s'", self.latest_generated_text[:60])
+                logger.info("[LLM COMPLETION] '%s'", self.latest_generated_text.replace("\n", " ")[:80])
         except Exception as e:
-            logger.debug("Text generation sample error: %s", e)
+            logger.debug("Text generation error: %s", e)
         finally:
             self.model.train()

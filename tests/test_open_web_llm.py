@@ -20,11 +20,12 @@ def test_web_text_tokenizer():
 
 def test_open_web_streamer():
     streamer = OpenWebStreamer()
-    X, Y, title = streamer.create_batch_stream(batch_size=4, block_size=16)
+    X, Y, title, url = streamer.create_batch(batch_size=4, block_size=16)
 
     assert X.shape == (4, 16)
     assert Y.shape == (4, 16)
     assert isinstance(title, str)
+    assert isinstance(url, str)
 
 
 def test_transformer_forward_and_generate():
