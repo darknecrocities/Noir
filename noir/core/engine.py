@@ -438,8 +438,10 @@ class NoirEngine:
         # Generate human-readable and ELI5 plain-text summary Markdown files
         try:
             resources = []
-            if hasattr(self.trainer, "streamer") and hasattr(self.trainer.streamer, "get_resource_history"):
-                resources = self.trainer.streamer.get_resource_history()
+            if hasattr(self.trainer, "streamer"):
+                if hasattr(self.trainer.streamer, "save_persisted_registry"):
+                    self.trainer.streamer.save_persisted_registry()
+                resources = getattr(self.trainer.streamer, "resource_history", [])
 
             sample_text = getattr(self.trainer, "latest_generated_text", None)
             device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
@@ -648,6 +650,8 @@ class NoirEngine:
 
         self.stop_training()
         self._telemetry_running = False
+        if self.trainer and hasattr(self.trainer, "streamer") and hasattr(self.trainer.streamer, "save_persisted_registry"):
+            self.trainer.streamer.save_persisted_registry()
         if self.mcp_server:
             self.mcp_server.stop()
         self.memory_manager.save_to_disk()

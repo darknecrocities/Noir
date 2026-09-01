@@ -43,6 +43,8 @@ data/*
 !data/.gitkeep
 memory/*
 !memory/.gitkeep
+storage/*
+!storage/.gitkeep
 *.db
 *.sqlite
 *.sqlite3

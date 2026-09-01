@@ -1,12 +1,14 @@
-"""Multi-source live internet ingestion engine executing continuous, non-repeating single-pass learning across 20-website batches."""
+"""Multi-source live internet ingestion engine with persistent disk registry, URL deduplication, and non-repeating single-pass learning."""
 
 import json
+import os
 import re
 import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 import numpy as np
 import torch
@@ -51,15 +53,22 @@ class WebTextTokenizer:
 
 
 class OpenWebStreamer:
-    """Harvests real internet articles in continuous 20-website batches, training each document ONCE only."""
+    """Harvests real internet articles in continuous 20-website batches with permanent disk persistence and zero-repeat guarantees."""
 
-    def __init__(self, tokenizer: Optional[WebTextTokenizer] = None):
+    def __init__(self, tokenizer: Optional[WebTextTokenizer] = None, storage_dir: str | Path = "storage"):
         self.tokenizer = tokenizer or WebTextTokenizer(vocab_size=256)
+        self.storage_dir = Path(storage_dir)
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        self.registry_path = self.storage_dir / "knowledge_registry.json"
+
         self.resource_history: List[WebResource] = []
         self._seen_urls: Set[str] = set()
         self._rehearsal_memory: List[str] = []
 
-        # 20-Website Batch Pipeline
+        # 1. Load persistent knowledge from previous training runs
+        self._load_persisted_registry()
+
+        # 2. 20-Website Batch Pipeline
         self._current_batch_queue: List[WebResource] = []
         self._active_article_idx: int = 0
         self._article_token_offset: int = 0
@@ -69,14 +78,69 @@ class OpenWebStreamer:
         self._last_fetch_time: float = 0.0
         self._batch_cycle_count: int = 0
 
-        # Initial seed: Harvest first 20-website batch
+        # Initial seed: Harvest first fresh 20-website batch (skipping all previously seen URLs)
         self.replenish_buffer(force=True)
 
+    def _load_persisted_registry(self) -> None:
+        """Load all previously trained websites and mastered knowledge from disk."""
+        if not self.registry_path.exists():
+            return
+        try:
+            with open(self.registry_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            seen_list = data.get("seen_urls", [])
+            self._seen_urls.update(seen_list)
+
+            resources_raw = data.get("resources", [])
+            for item in resources_raw:
+                res = WebResource(
+                    title=item.get("title", "Unknown"),
+                    url=item.get("url", ""),
+                    source_type=item.get("source_type", "Web Resource"),
+                    timestamp=item.get("timestamp", time.time()),
+                    character_count=item.get("character_count", 0),
+                    token_count=item.get("token_count", 0),
+                    text_snippet=item.get("text_snippet", ""),
+                    full_text=item.get("full_text", ""),
+                )
+                self.resource_history.append(res)
+                if res.full_text:
+                    self._rehearsal_memory.append(res.full_text)
+                self._emit_knowledge_event(res, status="MASTERED")
+
+            logger.info(
+                "[PERSISTENT KNOWLEDGE] Successfully restored %d mastered websites from disk (%s). Deduplication active.",
+                len(self._seen_urls),
+                self.registry_path.name,
+            )
+        except Exception as e:
+            logger.warning("Could not read knowledge registry: %s", e)
+
+    def save_persisted_registry(self) -> None:
+        """Atomically persist all seen URLs, articles, and metadata to disk."""
+        try:
+            payload = {
+                "version": "1.0",
+                "updated_at": time.time(),
+                "total_seen_urls": len(self._seen_urls),
+                "seen_urls": list(self._seen_urls),
+                "resources": [asdict(r) for r in self.resource_history],
+            }
+            tmp_path = self.registry_path.with_suffix(".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+            if tmp_path.exists():
+                tmp_path.replace(self.registry_path)
+            logger.debug("[PERSISTENT KNOWLEDGE] Saved %d records to %s", len(self.resource_history), self.registry_path.name)
+        except Exception as e:
+            logger.warning("Could not save knowledge registry: %s", e)
+
     def fetch_live_wikipedia(self, limit: int = 10) -> List[WebResource]:
-        """Fetch 10 unique, unseen articles from MediaWiki REST API."""
+        """Fetch 10 completely unique, unseen articles from MediaWiki REST API."""
         resources = []
         try:
-            url = f"https://en.wikipedia.org/w/api.php?action=query&format=json&generator=random&grnnamespace=0&grnlimit={limit * 2}&prop=extracts&explaintext=1&exintro=0"
+            url = f"https://en.wikipedia.org/w/api.php?action=query&format=json&generator=random&grnnamespace=0&grnlimit={limit * 3}&prop=extracts&explaintext=1&exintro=0"
             req = urllib.request.Request(
                 url,
                 headers={"User-Agent": "ProjectNoirResearchBot/1.0 (Advanced Cognitive AI Research Platform)"},
@@ -95,7 +159,7 @@ class OpenWebStreamer:
                         encoded_title = urllib.parse.quote(title.replace(" ", "_"))
                         full_url = f"https://en.wikipedia.org/wiki/{encoded_title}"
 
-                        # Skip if already seen/trained on previously
+                        # Skip if already seen in this or ANY previous session
                         if full_url in self._seen_urls or len(clean_text) < 150:
                             continue
 
@@ -116,14 +180,14 @@ class OpenWebStreamer:
                         resources.append(res)
                         self.resource_history.append(res)
                         self._rehearsal_memory.append(clean_text)
-                        self._emit_knowledge_event(res)
+                        self._emit_knowledge_event(res, status="INGESTED")
                         logger.info("[LIVE DISCOVERY %d/20] Ingested Wikipedia: '%s' (%s) [%d chars]", len(resources), safe_title[:35], full_url, len(clean_text))
         except Exception as e:
             logger.debug("Wikipedia batch fetch notice: %s", e)
 
         return resources
 
-    def _emit_knowledge_event(self, res: WebResource) -> None:
+    def _emit_knowledge_event(self, res: WebResource, status: str = "INGESTED") -> None:
         """Publish KNOWLEDGE_INGESTED event for real-time GUI telemetry synchronization."""
         try:
             bus = get_event_bus()
@@ -139,7 +203,7 @@ class OpenWebStreamer:
                     token_count=res.token_count,
                     text_snippet=res.text_snippet,
                     timestamp=res.timestamp,
-                    status="INGESTED",
+                    status=status,
                 ),
                 asynchronous=True,
             )
@@ -147,13 +211,13 @@ class OpenWebStreamer:
             pass
 
     def fetch_live_arxiv(self, limit: int = 10) -> List[WebResource]:
-        """Fetch 10 unique, unseen research papers across AI, ML, Robotics, and Cognitive Science from arXiv API."""
+        """Fetch 10 completely unique, unseen research papers across AI, ML, Robotics, and Cognitive Science."""
         resources = []
         categories = ["cs.AI", "cs.LG", "cs.CL", "cs.NE", "cs.RO", "cs.CV", "stat.ML", "q-bio.NC", "physics.soc-ph"]
         selected_cat = np.random.choice(categories)
         try:
-            offset = np.random.randint(0, 150)
-            url = f"https://export.arxiv.org/api/query?search_query=cat:{selected_cat}&start={offset}&max_results={limit * 2}"
+            offset = np.random.randint(0, 200)
+            url = f"https://export.arxiv.org/api/query?search_query=cat:{selected_cat}&start={offset}&max_results={limit * 3}"
             req = urllib.request.Request(
                 url,
                 headers={"User-Agent": "ProjectNoirResearchBot/1.0 (Advanced Cognitive AI Research Platform)"},
@@ -174,7 +238,7 @@ class OpenWebStreamer:
                         summary = summary_elem.text.strip().replace("\n", " ") if summary_elem is not None else ""
                         paper_url = id_elem.text.strip() if id_elem is not None else "https://arxiv.org"
 
-                        # Skip if already seen/trained on previously
+                        # Skip if already seen in this or ANY previous session
                         if paper_url in self._seen_urls or len(summary) < 60:
                             continue
 
@@ -196,7 +260,7 @@ class OpenWebStreamer:
                         resources.append(res)
                         self.resource_history.append(res)
                         self._rehearsal_memory.append(clean_text)
-                        self._emit_knowledge_event(res)
+                        self._emit_knowledge_event(res, status="INGESTED")
                         logger.info("[LIVE DISCOVERY %d/20] Ingested arXiv: '%s' (%s) [%d chars]", len(resources), safe_title[:35], paper_url, len(clean_text))
         except Exception as e:
             logger.debug("arXiv batch fetch notice: %s", e)
@@ -237,7 +301,7 @@ class OpenWebStreamer:
             batch_20 = [dummy_res]
             self.resource_history.append(dummy_res)
             self._seen_urls.add(dummy_res.url)
-            self._emit_knowledge_event(dummy_res)
+            self._emit_knowledge_event(dummy_res, status="INGESTED")
 
         self._current_batch_queue = batch_20
         self._active_article_idx = 0
@@ -247,8 +311,11 @@ class OpenWebStreamer:
         # Build validation buffer from a subset
         self._val_text_buffer = "\n\n".join(res.full_text for i, res in enumerate(batch_20) if i % 4 == 0)
 
+        # Save registry snapshot to disk
+        self.save_persisted_registry()
+
         logger.info(
-            "[BATCH STAGED] Batch #%d ready with %d fresh websites (Total Unique Ingested: %d).",
+            "[BATCH STAGED] Batch #%d ready with %d fresh websites (Total Lifetime Unique Mastered: %d).",
             self._batch_cycle_count,
             len(batch_20),
             len(self._seen_urls),
@@ -305,6 +372,7 @@ class OpenWebStreamer:
         # Check if this article's tokens have been completely traversed
         if offset + block_size + 1 >= len(article_tokens) or self._steps_on_current_article >= 8:
             logger.info("[SOURCE MASTERED] Completed single pass on: '%s' (%s). Advancing to next website...", active_title[:35], active_url)
+            self.save_persisted_registry()
             self._active_article_idx += 1
             self._article_token_offset = 0
             self._steps_on_current_article = 0
