@@ -1,6 +1,6 @@
 """Hardware and training telemetry status bar widget."""
 
-from typing import Dict
+import torch
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
 
@@ -48,8 +48,13 @@ class SystemMonitorBar(QFrame):
         self.lbl_reward = QLabel("REWARD: --")
         self.lbl_cpu = QLabel("CPU: 0%")
         self.lbl_ram = QLabel("RAM: 0%")
-        self.lbl_gpu = QLabel("GPU: N/A")
-        self.lbl_device = QLabel("DEVICE: CPU")
+
+        cuda_avail = torch.cuda.is_available()
+        gpu_name = torch.cuda.get_device_name(0).replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "") if cuda_avail else "CPU"
+        self.lbl_gpu = QLabel("GPU: ACTIVE" if cuda_avail else "GPU: OFF")
+        self.lbl_device = QLabel(f"DEVICE: {gpu_name} (CUDA)" if cuda_avail else "DEVICE: CPU")
+        if cuda_avail:
+            self.lbl_device.setStyleSheet("color: #76b900; font-weight: bold;")
 
         layout.addWidget(self.lbl_status)
         layout.addWidget(self.lbl_step)
