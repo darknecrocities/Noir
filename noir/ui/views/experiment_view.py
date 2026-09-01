@@ -93,7 +93,7 @@ class ExperimentView(QWidget):
         self.spin_branch_lr.setValue(0.0001)
         branch_layout.addWidget(self.spin_branch_lr)
 
-        self.btn_branch = QPushButton("🌿 Create Branch & Initialize")
+        self.btn_branch = QPushButton("Create Branch & Initialize")
         self.btn_branch.setStyleSheet("""
             QPushButton {
                 background-color: #00875a;

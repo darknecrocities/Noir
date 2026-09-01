@@ -84,13 +84,13 @@ class TrainingControls(QFrame):
         # Mode / Real Dataset Selection
         layout.addWidget(QLabel("DATASET & MODE:"))
         self.combo_mode = QComboBox()
-        self.combo_mode.addItem("🔢 Real Digits (8x8 Handwritten)", "supervised:digits")
-        self.combo_mode.addItem("👗 Fashion-MNIST (Clothing Benchmark)", "supervised:fashion_mnist")
-        self.combo_mode.addItem("🍷 Wine Analysis (Chemical Sensors)", "supervised:wine")
-        self.combo_mode.addItem("🔬 Breast Cancer (Biomedical FNA)", "supervised:breast_cancer")
-        self.combo_mode.addItem("📝 MNIST (Classic 28x28 Digits)", "supervised:mnist")
-        self.combo_mode.addItem("🖼️ CIFAR-10 (Color Objects)", "supervised:cifar10")
-        self.combo_mode.addItem("🤖 RL: PPO GridWorld Navigation", "rl:gridworld")
+        self.combo_mode.addItem("Real Digits (8x8 Handwritten)", "supervised:digits")
+        self.combo_mode.addItem("Fashion-MNIST (Clothing Benchmark)", "supervised:fashion_mnist")
+        self.combo_mode.addItem("Wine Analysis (Chemical Sensors)", "supervised:wine")
+        self.combo_mode.addItem("Breast Cancer (Biomedical FNA)", "supervised:breast_cancer")
+        self.combo_mode.addItem("MNIST (Classic 28x28 Digits)", "supervised:mnist")
+        self.combo_mode.addItem("CIFAR-10 (Color Objects)", "supervised:cifar10")
+        self.combo_mode.addItem("RL: PPO GridWorld Navigation", "rl:gridworld")
         layout.addWidget(self.combo_mode)
 
         # Learning Rate
@@ -105,25 +105,25 @@ class TrainingControls(QFrame):
         layout.addStretch()
 
         # Action Buttons
-        self.btn_start = QPushButton("▶ START")
+        self.btn_start = QPushButton("START")
         self.btn_start.setObjectName("btn_start")
         self.btn_start.clicked.connect(self._on_start)
         layout.addWidget(self.btn_start)
 
-        self.btn_pause = QPushButton("⏸ PAUSE")
+        self.btn_pause = QPushButton("PAUSE")
         self.btn_pause.clicked.connect(self.pause_clicked.emit)
         layout.addWidget(self.btn_pause)
 
-        self.btn_resume = QPushButton("⏯ RESUME")
+        self.btn_resume = QPushButton("RESUME")
         self.btn_resume.clicked.connect(self.resume_clicked.emit)
         layout.addWidget(self.btn_resume)
 
-        self.btn_stop = QPushButton("⏹ STOP")
+        self.btn_stop = QPushButton("STOP")
         self.btn_stop.setObjectName("btn_stop")
         self.btn_stop.clicked.connect(self.stop_clicked.emit)
         layout.addWidget(self.btn_stop)
 
-        self.btn_ckpt = QPushButton("💾 SAVE CHECKPOINT")
+        self.btn_ckpt = QPushButton("SAVE CHECKPOINT")
         self.btn_ckpt.clicked.connect(self.checkpoint_clicked.emit)
         layout.addWidget(self.btn_ckpt)
 

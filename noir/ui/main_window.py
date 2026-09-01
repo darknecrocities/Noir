@@ -64,19 +64,19 @@ class NoirMainWindow(QMainWindow):
 
         # 1. Dashboard View
         self.dashboard_view = DashboardView(self)
-        self.tabs.addTab(self.dashboard_view, "🔬 DASHBOARD")
+        self.tabs.addTab(self.dashboard_view, "DASHBOARD")
 
         # 2. Experiments & Branching View
         self.experiment_view = ExperimentView(self)
-        self.tabs.addTab(self.experiment_view, "🌿 EXPERIMENTS & BRANCHING")
+        self.tabs.addTab(self.experiment_view, "EXPERIMENTS & BRANCHING")
 
         # 3. Strategist & MCP View
         self.strategist_view = StrategistView(self)
-        self.tabs.addTab(self.strategist_view, "🧠 AI STRATEGIST & MCP")
+        self.tabs.addTab(self.strategist_view, "AI STRATEGIST & MCP")
 
         # 4. Memory View
         self.memory_view = MemoryView(self)
-        self.tabs.addTab(self.memory_view, "💾 MEMORY & KNOWLEDGE")
+        self.tabs.addTab(self.memory_view, "MEMORY & KNOWLEDGE")
 
         main_layout.addWidget(self.tabs)
 

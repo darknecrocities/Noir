@@ -18,7 +18,7 @@
 
 ---
 
-## 🌌 Overview
+## Overview
 
 **Project NOIR** is a local-first, native Python experimental research platform designed to study artificial neural learning, reinforcement learning dynamics, cognitive memory, and mathematical affective systems in real time.
 
@@ -28,7 +28,7 @@
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```
                                   PROJECT NOIR
@@ -50,19 +50,19 @@
 
 ---
 
-## ⚡ Key Capabilities
+## Key Capabilities
 
 1. **Genuine PyTorch Machine Learning on Real Datasets**:
    - Real tensor forward passes, loss calculation, backpropagation, and weight updates.
    - Dual research modes: **Real-World Benchmark Classification** and **PPO Reinforcement Learning**.
    - **Automated Real Dataset Search & Ingestion**:
-     - 🔢 `digits`: Scikit-learn 8x8 optical handwritten digits (1,797 samples, 64 features, 10 classes)
-     - 👗 `fashion_mnist`: Zalando's real clothing benchmark (70,000 samples, 784 features, 10 classes)
-     - 🍷 `wine`: Real chemical constituent measurements (178 samples, 13 features, 3 classes)
-     - 🔬 `breast_cancer`: Diagnostic FNA biopsy morphometry (569 samples, 30 features, 2 classes)
-     - 📝 `mnist`: Classic handwritten digits benchmark (70,000 samples, 784 features, 10 classes)
-     - 🖼️ `cifar10`: Natural color object images (60,000 samples, 3072 features, 10 classes)
-     - 🌸 `iris`: Fisher's classic botanical morphological measurements (150 samples, 4 features, 3 classes)
+     - `digits`: Scikit-learn 8x8 optical handwritten digits (1,797 samples, 64 features, 10 classes)
+     - `fashion_mnist`: Zalando's real clothing benchmark (70,000 samples, 784 features, 10 classes)
+     - `wine`: Real chemical constituent measurements (178 samples, 13 features, 3 classes)
+     - `breast_cancer`: Diagnostic FNA biopsy morphometry (569 samples, 30 features, 2 classes)
+     - `mnist`: Classic handwritten digits benchmark (70,000 samples, 784 features, 10 classes)
+     - `cifar10`: Natural color object images (60,000 samples, 3072 features, 10 classes)
+     - `iris`: Fisher's classic botanical morphological measurements (150 samples, 4 features, 3 classes)
    - **Automatic Architecture Adaptation**: The model automatically reconfigures its input dimension and output classification heads to match the exact dimensional reality of the selected or discovered dataset.
    - Live layer introspection using PyTorch execution hooks.
 
@@ -79,7 +79,7 @@
    - Traveling energy pulses and disturbance shockwaves triggered by gradients and surprises.
 
 4. **Atomic Persistence & Experiment Branching**:
-   - Two-phase commit checkpointing (`checkpoint.tmp` $\to$ validate $\to$ rename).
+   - Two-phase commit checkpointing (`checkpoint.tmp` -> validate -> rename).
    - Automatic retention management and instant crash recovery on startup.
    - Non-destructive experiment branching from any historical checkpoint.
 
@@ -89,9 +89,9 @@
 
 ---
 
-## 📐 Mathematical Formulations
+## Mathematical Formulations
 
-### 1. Affective State Vector ($E_t$)
+### 1. Affective State Vector (E_t)
 $$E_{t+1} = \text{clip}\left(\alpha E_t + \beta R_t + \gamma N_t + \delta U_t + \epsilon G_t, 0, 1\right)$$
 - $R_t$: Environment / task reward
 - $N_t$: State novelty (spatial hash density)
@@ -112,7 +112,7 @@ $$L^{\text{CLIP}}(\theta) = \hat{\mathbb{E}}_t \left[ \min\left(r_t(\theta)\hat{
 
 ---
 
-## 🚀 Installation & Quick Start
+## Installation & Quick Start
 
 ### Prerequisites
 - **Python 3.10+** (Tested on Python 3.11)
@@ -123,8 +123,8 @@ $$L^{\text{CLIP}}(\theta) = \hat{\mathbb{E}}_t \left[ \min\left(r_t(\theta)\hat{
 #### Windows:
 ```powershell
 # Clone the repository
-git clone <repository_url>
-cd project-noir
+git clone https://github.com/darknecrocities/Noir.git
+cd Noir
 
 # Run automated setup script
 .\setup.ps1
@@ -136,8 +136,8 @@ cd project-noir
 #### Linux / macOS:
 ```bash
 # Clone the repository
-git clone <repository_url>
-cd project-noir
+git clone https://github.com/darknecrocities/Noir.git
+cd Noir
 
 # Make scripts executable and run setup
 chmod +x setup.sh run.sh
@@ -170,13 +170,13 @@ python -m noir.main
 
 ---
 
-## 🖥️ User Interface Overview
+## User Interface Overview
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ PROJECT NOIR                                                      ● LIVE    │
+│ PROJECT NOIR                                                        LIVE    │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ [RESEARCH MODE: Supervised ▼] [LR: 0.00100] [▶ START] [⏸ PAUSE] [💾 SAVE]   │
+│ [DATASET: Real Digits ▼] [LR: 0.00100] [START] [PAUSE] [SAVE CHECKPOINT]    │
 ├──────────────────────────────┬───────────────────────────────┬──────────────┤
 │                              │                               │ AFFECTIVE    │
 │  3D NEURAL NETWORK VIEWPORT  │     REAL-TIME TELEMETRY       │ Curiosity    │
@@ -194,7 +194,7 @@ python -m noir.main
 
 ---
 
-## 🤖 Model Context Protocol (MCP) Integration
+## Model Context Protocol (MCP) Integration
 
 Project NOIR exposes an embedded MCP Server at `http://127.0.0.1:8765`.
 
@@ -220,7 +220,7 @@ NOIR_MCP_PORT=8765
 
 ---
 
-## ⚙️ Configuration (`config/default.yaml`)
+## Configuration (`config/default.yaml`)
 
 ```yaml
 project:
@@ -251,7 +251,7 @@ emotion:
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run the full automated test suite:
 
@@ -266,12 +266,13 @@ Tests verify:
 - Shannon entropy and prediction variance calculations.
 - PPO policy optimization steps and reward accumulation.
 - Non-destructive experiment branching.
+- Real dataset loading, normalization, and model dimension adaptation.
 
 ---
 
-## 🛡️ Troubleshooting
+## Troubleshooting
 
-- **PySide6 / OpenGL Display on Headless Servers**:
+- **PySide6 / Display on Headless Servers**:
   Run in headless mode using:
   ```bash
   python -m noir.main --headless --mode supervised
@@ -283,5 +284,5 @@ Tests verify:
 
 ---
 
-## 📄 License
+## License
 MIT License. Built for advanced artificial intelligence and cognitive systems research.

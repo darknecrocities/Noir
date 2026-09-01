@@ -111,14 +111,14 @@ class RecoveryDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
 
-        btn_resume = QPushButton("▶ Resume Training")
+        btn_resume = QPushButton("Resume Training")
         btn_resume.setObjectName("btn_resume")
         btn_resume.clicked.connect(self._on_resume)
 
-        btn_load = QPushButton("📂 Load Without Resuming")
+        btn_load = QPushButton("Load Without Resuming")
         btn_load.clicked.connect(self._on_load)
 
-        btn_new = QPushButton("✨ Start New Experiment")
+        btn_new = QPushButton("Start New Experiment")
         btn_new.clicked.connect(self._on_new)
 
         btn_layout.addWidget(btn_resume)
