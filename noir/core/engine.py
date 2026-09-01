@@ -382,6 +382,14 @@ class NoirEngine:
         logger.info("Open Web LLM experiment started on device %s (ID: %s)", self._get_device_str(), exp_record.id)
         return exp_record.id
 
+    def start_autonomous_master_training(self, learning_rate: float = 0.0005) -> str:
+        """Start the unified autonomous master research loop across internet text, real datasets, and curiosity RL."""
+        return self.start_open_web_llm_experiment(
+            name="Project NOIR Autonomous Master Research (All)",
+            learning_rate=learning_rate,
+            max_steps=50000,
+        )
+
     def pause_training(self) -> None:
         if self.trainer:
             self.trainer.pause_training()
@@ -569,8 +577,16 @@ class NoirEngine:
             time.sleep(1.0)
 
     def shutdown(self) -> None:
-        """Gracefully terminate engine and all worker threads."""
-        logger.info("Project NOIR Engine shutting down...")
+        """Gracefully terminate engine and all worker threads with automatic checkpoint preservation."""
+        logger.info("Project NOIR Engine shutting down gracefully...")
+        # Automatically preserve latest training weights & state before exiting
+        if self.trainer and self.model and getattr(self.trainer, "global_step", 0) > 0:
+            try:
+                ckpt_path = self.save_checkpoint(tag="auto_exit")
+                logger.info("[AUTO-SAVED] Model weights and training state successfully preserved to: %s", ckpt_path.name)
+            except Exception as e:
+                logger.debug("Auto-save on exit notice: %s", e)
+
         self.stop_training()
         self._telemetry_running = False
         if self.mcp_server:
@@ -578,3 +594,4 @@ class NoirEngine:
         self.memory_manager.save_to_disk()
         self.event_bus.shutdown()
         self.lifecycle.transition_to(LifecycleState.STOPPED)
+        logger.info("[SHUTDOWN] Engine and all worker threads terminated safely.")

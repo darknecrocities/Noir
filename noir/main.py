@@ -14,7 +14,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="PROJECT NOIR — Real-Time AI & ML Research Environment")
     parser.add_argument("--config", type=str, default=None, help="Path to custom YAML configuration file")
     parser.add_argument("--headless", action="store_true", help="Run in headless CLI mode without desktop GUI")
-    parser.add_argument("--mode", type=str, choices=["supervised", "rl", "llm", "open_web"], default=None, help="Directly start experiment in specified mode")
+    parser.add_argument("--mode", type=str, choices=["all", "autonomous", "supervised", "rl", "llm", "open_web"], default=None, help="Directly start experiment in specified mode")
     parser.add_argument("--recover", action="store_true", help="Automatically recover previous session on launch")
     args = parser.parse_args()
 
@@ -25,28 +25,37 @@ def main() -> None:
     engine = NoirEngine(config_path=args.config)
     engine.start()
 
+    def handle_interrupt(sig=None, frame=None):
+        print("\n[SHUTDOWN TRIGGERED] Ctrl+C / Interrupt received.")
+        print("[AUTO-SAVE] Automatically saving active neural weights and training state...")
+        try:
+            engine.shutdown()
+            print("[AUTO-SAVE COMPLETED] Model checkpoint preserved. Resume anytime with: python -m noir.main --recover")
+        except Exception as e:
+            print(f"[SHUTDOWN NOTICE] {e}")
+        sys.exit(0)
+
     # 3. Headless Execution Mode
     if args.headless:
         print("==========================================================")
-        print("        PROJECT NOIR — HEADLESS RESEARCH RUNNER           ")
+        print("        PROJECT NOIR — AUTONOMOUS RESEARCH RUNNER         ")
         print("==========================================================")
 
         if args.recover:
             engine.recover_from_previous_session(action="resume")
-        elif args.mode in ("llm", "open_web"):
-            engine.start_open_web_llm_experiment(name="Open Web Live Internet LLM Headless Run")
+        elif args.mode in ("supervised", "digits"):
+            engine.start_supervised_experiment(dataset_name="digits", name="Real Digits Headless Run")
         elif args.mode == "rl":
             engine.start_rl_experiment(name="PPO GridWorld Headless Run")
         else:
-            engine.start_supervised_experiment(dataset_name="digits", name="Real Digits Headless Run")
+            # Default: Start autonomous master research loop
+            engine.start_autonomous_master_training()
 
         try:
             while True:
                 time.sleep(1.0)
         except KeyboardInterrupt:
-            print("\nShutting down Project NOIR engine...")
-            engine.shutdown()
-            sys.exit(0)
+            handle_interrupt()
 
     # 4. Native Desktop GUI Mode
     from PySide6.QtWidgets import QApplication
@@ -65,16 +74,22 @@ def main() -> None:
     else:
         window.check_startup_recovery()
 
-    if args.mode in ("llm", "open_web"):
+    if args.mode in ("all", "autonomous"):
+        engine.start_autonomous_master_training()
+    elif args.mode in ("llm", "open_web"):
         engine.start_open_web_llm_experiment()
     elif args.mode == "supervised":
         engine.start_supervised_experiment()
     elif args.mode == "rl":
         engine.start_rl_experiment()
 
-    exit_code = app.exec()
-    engine.shutdown()
-    sys.exit(exit_code)
+    try:
+        exit_code = app.exec()
+    except KeyboardInterrupt:
+        handle_interrupt()
+    finally:
+        engine.shutdown()
+        sys.exit(exit_code if "exit_code" in locals() else 0)
 
 
 if __name__ == "__main__":

@@ -152,7 +152,11 @@ class NoirMainWindow(QMainWindow):
 
     def _on_start_training(self, selection: str, lr: float) -> None:
         self.dashboard_view.metrics_panel.clear()
-        if selection == "llm:open_web" or selection.startswith("llm"):
+        if selection == "all:autonomous" or selection.startswith("all"):
+            self.engine.start_autonomous_master_training(
+                learning_rate=lr,
+            )
+        elif selection == "llm:open_web" or selection.startswith("llm"):
             self.engine.start_open_web_llm_experiment(
                 name="Open Web Live Internet LLM",
                 learning_rate=lr,

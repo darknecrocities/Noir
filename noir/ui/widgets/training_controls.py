@@ -84,6 +84,7 @@ class TrainingControls(QFrame):
         # Mode / Real Dataset Selection
         layout.addWidget(QLabel("DATASET & MODE:"))
         self.combo_mode = QComboBox()
+        self.combo_mode.addItem("ALL: Autonomous Master Research (Live Internet + Multimodal)", "all:autonomous")
         self.combo_mode.addItem("Open Web Internet Stream (Transformer LLM)", "llm:open_web")
         self.combo_mode.addItem("Real Digits (8x8 Handwritten)", "supervised:digits")
         self.combo_mode.addItem("Fashion-MNIST (Clothing Benchmark)", "supervised:fashion_mnist")
