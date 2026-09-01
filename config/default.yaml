@@ -1,0 +1,82 @@
+project:
+  name: Project NOIR
+  version: "0.1.0"
+  description: "Real-time AI and Machine Learning Research Environment"
+
+training:
+  device: auto
+  learning_rate: 0.0003
+  batch_size: 64
+  checkpoint_interval_steps: 100
+  autosave_interval_seconds: 60
+  num_epochs: 100
+  gradient_clip_val: 0.5
+  weight_decay: 0.0001
+  optimizer: adam
+  supervised:
+    dataset: digits
+    hidden_dims: [128, 64, 32]
+    num_classes: 10
+
+reinforcement_learning:
+  algorithm: PPO
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_eps: 0.2
+  entropy_coef: 0.01
+  value_loss_coef: 0.5
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  env_id: GridWorld-v0
+  grid_size: 8
+  max_episode_steps: 150
+
+emotion:
+  enabled: true
+  curiosity_weight: 0.2
+  frustration_decay: 0.95
+  confidence_decay: 0.99
+  surprise_threshold: 0.70
+  novelty_weight: 0.3
+  uncertainty_weight: 0.25
+  goal_progress_weight: 0.4
+  persistence_factor: 0.85
+  caution_threshold: 0.65
+
+memory:
+  short_term_capacity: 100
+  episodic_capacity: 1000
+  semantic_capacity: 500
+  replay_buffer_size: 10000
+
+strategy:
+  enabled: true
+  provider: local
+  model: llama3
+  api_base: "http://localhost:11434/v1"
+  api_key: ""
+  analysis_interval_steps: 250
+  auto_hypothesize: true
+
+mcp:
+  enabled: true
+  port: 8765
+  host: "127.0.0.1"
+
+visualization:
+  enabled: true
+  update_interval_ms: 50
+  max_visualized_nodes: 500
+  max_visualized_connections: 2000
+  camera_distance: 4.5
+  theme: noir_dark
+
+storage:
+  database: noir.db
+  checkpoint_dir: checkpoints
+  experiments_dir: experiments
+  logs_dir: logs
+  memory_dir: memory
+  checkpoint_retention: 20

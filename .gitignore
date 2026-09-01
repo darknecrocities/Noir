@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+!.env.example
+
+# Project NOIR Local Artifacts (keep structure, ignore experiment weights/checkpoints)
+checkpoints/*
+!checkpoints/.gitkeep
+experiments/*
+!experiments/.gitkeep
+logs/*
+!logs/.gitkeep
+data/*
+!data/.gitkeep
+memory/*
+!memory/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+
+# Pytest / Coverage / MyPy
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
