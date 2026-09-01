@@ -282,6 +282,7 @@ class NoirMainWindow(QMainWindow):
                 gpu=event.payload.get("gpu_percent", 0),
                 vram=event.payload.get("gpu_memory_mb", 0),
                 cuda=event.payload.get("cuda_available", False),
+                device_name=event.payload.get("device_name", ""),
             )
 
         elif event.event_type == EventType.HYPOTHESIS_GENERATED:

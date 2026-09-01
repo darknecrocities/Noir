@@ -159,15 +159,20 @@ class OpenWebLLMTrainer(BaseTrainer):
             self._on_batch_end(step, loss_val, step_metrics)
 
             if step % 10 == 0:
+                gpu_mem_str = "CPU"
+                if self.device.type == "cuda":
+                    alloc_mb = torch.cuda.memory_allocated() / (1024 * 1024)
+                    res_mb = torch.cuda.memory_reserved() / (1024 * 1024)
+                    gpu_mem_str = f"{max(alloc_mb, res_mb, 1.0):.1f}MB"
                 logger.info(
-                    "Step %d | [LIVE WEB: %s] | URL: %s | Loss: %.4f | PPL: %.2f | Val PPL: %.2f | GPU: %.1fMB",
+                    "Step %d | [LIVE WEB: %s] | URL: %s | Loss: %.4f | PPL: %.2f | Val PPL: %.2f | GPU: %s",
                     step,
                     self.active_article_title[:28],
                     self.active_article_url,
                     loss_val,
                     perplexity,
                     self.latest_val_perplexity or perplexity,
-                    torch.cuda.memory_allocated() / (1024 * 1024) if self.device.type == "cuda" else 0.0,
+                    gpu_mem_str,
                 )
 
             # 9. Periodic GPU memory optimization and clean single-stream pacing

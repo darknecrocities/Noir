@@ -81,13 +81,18 @@ class SystemMonitorBar(QFrame):
         if reward is not None:
             self.lbl_reward.setText(f"REWARD: {reward:.2f}")
 
-    def update_hardware(self, cpu: float, ram: float, gpu: float = None, vram: float = None, cuda: bool = False) -> None:
+    def update_hardware(self, cpu: float, ram: float, gpu: float = None, vram: float = None, cuda: bool = False, device_name: str = "") -> None:
         self.lbl_cpu.setText(f"CPU: {cpu:.0f}%")
         self.lbl_ram.setText(f"RAM: {ram:.0f}%")
         if cuda:
-            self.lbl_gpu.setText(f"GPU: {vram:.1f}MB")
-            self.lbl_device.setText("DEVICE: CUDA")
+            vram_val = max(0.1, vram or 0.0)
+            self.lbl_gpu.setText(f"GPU VRAM: {vram_val:.1f}MB")
+            dev_label = device_name if device_name else "RTX 3050"
+            if "NVIDIA" in dev_label:
+                dev_label = dev_label.replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "")
+            self.lbl_device.setText(f"DEVICE: {dev_label} (CUDA)")
             self.lbl_device.setStyleSheet("color: #76b900; font-weight: bold;")
         else:
             self.lbl_gpu.setText("GPU: OFF")
             self.lbl_device.setText("DEVICE: CPU")
+            self.lbl_device.setStyleSheet("color: #8da2c0; font-weight: normal;")

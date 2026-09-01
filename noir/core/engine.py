@@ -594,15 +594,21 @@ class NoirEngine:
 
                 gpu_percent = 0.0
                 gpu_memory = 0.0
-                if torch.cuda.is_available():
-                    gpu_memory = torch.cuda.memory_allocated() / (1024 * 1024)  # MB
+                device_name = ""
+                cuda_avail = torch.cuda.is_available()
+                if cuda_avail:
+                    allocated = torch.cuda.memory_allocated() / (1024 * 1024)
+                    reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+                    gpu_memory = max(allocated, reserved)
+                    device_name = torch.cuda.get_device_name(0)
 
                 telemetry = {
                     "cpu_percent": cpu_percent,
                     "ram_percent": ram_percent,
                     "gpu_percent": gpu_percent,
                     "gpu_memory_mb": round(gpu_memory, 2),
-                    "cuda_available": torch.cuda.is_available(),
+                    "cuda_available": cuda_avail,
+                    "device_name": device_name,
                 }
 
                 self.event_bus.publish(
