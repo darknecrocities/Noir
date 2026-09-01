@@ -30,6 +30,7 @@ class TrainingReportGenerator:
         emotion_state = emotion_state or {}
         resources = resources or []
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        device_name = device_name or (torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
 
         loss_val = metrics.get("train_loss", metrics.get("loss", 0.0))
         ppl_val = metrics.get("perplexity", 0.0)

@@ -84,12 +84,12 @@ class CheckpointManager:
             # 1. Save Model Weights via Safetensors (or PyTorch fallback if complex types)
             weights_file = temp_ckpt_dir / "model.safetensors"
             state_dict = model.state_dict()
-            # Convert tensors to contiguous CPU tensors for robust safetensors serialization
-            cpu_state_dict = {k: v.detach().cpu().contiguous() for k, v in state_dict.items()}
+            # Convert tensors to contiguous independent CPU tensors for robust safetensors serialization
+            cpu_state_dict = {k: v.detach().cpu().contiguous().clone() for k, v in state_dict.items()}
             try:
                 save_safetensors(cpu_state_dict, weights_file)
             except Exception as se:
-                logger.warning("Safetensors save encountered error: %s. Using torch.save fallback.", se)
+                logger.debug("Safetensors save notice: %s. Using torch.save fallback.", se)
                 weights_file = temp_ckpt_dir / "model.pt"
                 torch.save(cpu_state_dict, weights_file)
 

@@ -118,156 +118,160 @@ class NeuralVisualizer3D(QWidget):
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
 
-        w = float(self.width())
-        h = float(self.height())
+            w = float(self.width())
+            h = float(self.height())
 
-        # 1. Dark Research Laboratory Background with subtle gradient
-        bg_gradient = QRadialGradient(w / 2.0, h / 2.0, max(w, h) * 0.7)
-        bg_gradient.setColorAt(0.0, QColor(14, 18, 28))
-        bg_gradient.setColorAt(1.0, QColor(6, 8, 14))
-        painter.fillRect(self.rect(), bg_gradient)
+            # 1. Dark Research Laboratory Background with subtle gradient
+            bg_gradient = QRadialGradient(w / 2.0, h / 2.0, max(w, h) * 0.7)
+            bg_gradient.setColorAt(0.0, QColor(14, 18, 28))
+            bg_gradient.setColorAt(1.0, QColor(6, 8, 14))
+            painter.fillRect(self.rect(), bg_gradient)
 
-        # 2. Draw 3D Grid Plane (Z = -1.5)
-        self._draw_grid_plane(painter, w, h)
+            # 2. Draw 3D Grid Plane (Z = -1.5)
+            self._draw_grid_plane(painter, w, h)
 
-        # 3. Project and sort all nodes and connections by depth
-        projected_nodes = []
-        for node in self.graph.nodes:
-            nx, ny, nz = node["pos"]
-            # Apply shockwave jitter
-            if self.shockwave_radius > 0.0:
-                jitter = math.sin(nx * 5.0 + self.pulse_phase * 4.0) * 0.08 * self.shockwave_radius
-                ny += jitter
-                nz += jitter
+            # 3. Project and sort all nodes and connections by depth
+            projected_nodes = []
+            for node in self.graph.nodes:
+                nx, ny, nz = node["pos"]
+                # Apply shockwave jitter
+                if self.shockwave_radius > 0.0:
+                    jitter = math.sin(nx * 5.0 + self.pulse_phase * 4.0) * 0.08 * self.shockwave_radius
+                    ny += jitter
+                    nz += jitter
 
-            sx, sy, depth, visible = self._project_point(nx, ny, nz, w, h)
-            if visible:
-                projected_nodes.append({
-                    "data": node,
-                    "sx": sx,
-                    "sy": sy,
-                    "depth": depth,
-                })
+                sx, sy, depth, visible = self._project_point(nx, ny, nz, w, h)
+                if visible:
+                    projected_nodes.append({
+                        "data": node,
+                        "sx": sx,
+                        "sy": sy,
+                        "depth": depth,
+                    })
 
-        # Node coordinate lookup
-        node_pos_map = {pn["data"]["id"]: pn for pn in projected_nodes}
+            # Node coordinate lookup
+            node_pos_map = {pn["data"]["id"]: pn for pn in projected_nodes}
 
-        # 4. Draw Synaptic Connections
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-        for conn in self.graph.connections:
-            src = node_pos_map.get(conn["source_id"])
-            tgt = node_pos_map.get(conn["target_id"])
-            if not src or not tgt:
-                continue
+            # 4. Draw Synaptic Connections
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            for conn in self.graph.connections:
+                src = node_pos_map.get(conn["source_id"])
+                tgt = node_pos_map.get(conn["target_id"])
+                if not src or not tgt:
+                    continue
 
-            # Connection depth
-            avg_depth = (src["depth"] + tgt["depth"]) / 2.0
-            depth_scale = max(0.2, min(1.0, 5.0 / avg_depth))
+                # Connection depth
+                avg_depth = (src["depth"] + tgt["depth"]) / 2.0
+                depth_scale = max(0.2, min(1.0, 5.0 / avg_depth))
 
-            norm_w = conn["normalized_weight"]
-            sign = conn["sign"]
+                norm_w = conn["normalized_weight"]
+                sign = conn["sign"]
 
-            # Cyan for positive weight, Magenta/Purple for negative
-            if sign >= 0:
-                base_color = QColor(0, 220, 255)
-            else:
-                base_color = QColor(255, 60, 160)
+                # Cyan for positive weight, Magenta/Purple for negative
+                if sign >= 0:
+                    base_color = QColor(0, 220, 255)
+                else:
+                    base_color = QColor(255, 60, 160)
 
-            alpha = int(max(15, min(200, norm_w * 220 * depth_scale)))
-            base_color.setAlpha(alpha)
+                alpha = int(max(15, min(180, norm_w * 200 * depth_scale)))
+                base_color.setAlpha(alpha)
 
-            pen_width = max(1.0, norm_w * 3.0 * depth_scale)
-            painter.setPen(QPen(base_color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-            painter.drawLine(QPointF(src["sx"], src["sy"]), QPointF(tgt["sx"], tgt["sy"]))
+                pen_width = max(1.0, norm_w * 2.5 * depth_scale)
+                painter.setPen(QPen(base_color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                painter.drawLine(QPointF(src["sx"], src["sy"]), QPointF(tgt["sx"], tgt["sy"]))
 
-            # Draw traveling pulse signal on active weights
-            if norm_w > 0.3:
-                t_pulse = (self.pulse_phase / (2 * math.pi) + (hash(conn["source_id"]) % 100) / 100.0) % 1.0
-                px = src["sx"] + (tgt["sx"] - src["sx"]) * t_pulse
-                py = src["sy"] + (tgt["sy"] - src["sy"]) * t_pulse
+                # Draw traveling pulse signal on active weights
+                if norm_w > 0.35:
+                    t_pulse = (self.pulse_phase / (2 * math.pi) + (hash(conn["source_id"]) % 100) / 100.0) % 1.0
+                    px = src["sx"] + (tgt["sx"] - src["sx"]) * t_pulse
+                    py = src["sy"] + (tgt["sy"] - src["sy"]) * t_pulse
 
-                pulse_color = QColor(255, 255, 255, int(180 * norm_w))
-                painter.setBrush(QBrush(pulse_color))
+                    pulse_color = QColor(255, 255, 255, int(180 * norm_w))
+                    painter.setBrush(QBrush(pulse_color))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawEllipse(QPointF(px, py), 2.0 * depth_scale, 2.0 * depth_scale)
+
+            # 5. Sort nodes back-to-front for proper depth occlusion
+            projected_nodes.sort(key=lambda item: item["depth"], reverse=True)
+
+            # 6. Draw Nodes with Glowing Activation Fields
+            for pn in projected_nodes:
+                node = pn["data"]
+                sx = pn["sx"]
+                sy = pn["sy"]
+                depth = pn["depth"]
+
+                depth_scale = max(0.3, min(1.2, 5.0 / depth))
+                act = node.get("activation", 0.0)
+
+                base_radius = (4.0 + act * 7.0) * depth_scale
+                if self.energy_burst > 0.0:
+                    base_radius *= (1.0 + self.energy_burst * 0.2)
+
+                is_selected = (node["id"] == self.selected_node_id)
+                is_hovered = (self.hovered_node and node["id"] == self.hovered_node.get("id"))
+
+                # Outer glow radial gradient
+                glow_radius = base_radius * 2.2
+                glow = QRadialGradient(sx, sy, glow_radius)
+                if act > 0.6:
+                    glow_color = QColor(0, 255, 180, int(130 * act))
+                elif act > 0.2:
+                    glow_color = QColor(0, 180, 255, int(100 * act))
+                else:
+                    glow_color = QColor(80, 100, 150, 35)
+
+                glow.setColorAt(0.0, glow_color)
+                glow.setColorAt(1.0, QColor(0, 0, 0, 0))
+
+                painter.setBrush(QBrush(glow))
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawEllipse(QPointF(px, py), 2.0 * depth_scale, 2.0 * depth_scale)
+                painter.drawEllipse(QPointF(sx, sy), glow_radius, glow_radius)
 
-        # 5. Sort nodes back-to-front for proper depth occlusion
-        projected_nodes.sort(key=lambda item: item["depth"], reverse=True)
+                # Node Core
+                core_grad = QRadialGradient(sx - base_radius * 0.3, sy - base_radius * 0.3, base_radius)
+                if is_selected or is_hovered:
+                    core_grad.setColorAt(0.0, QColor(255, 255, 255))
+                    core_grad.setColorAt(0.6, QColor(255, 220, 0))
+                    core_grad.setColorAt(1.0, QColor(200, 150, 0))
+                    stroke_pen = QPen(QColor(255, 255, 255), 2.0)
+                elif act > 0.5:
+                    core_grad.setColorAt(0.0, QColor(255, 255, 255))
+                    core_grad.setColorAt(0.5, QColor(0, 255, 200))
+                    core_grad.setColorAt(1.0, QColor(0, 150, 120))
+                    stroke_pen = QPen(QColor(0, 255, 200, 180), 1.0)
+                else:
+                    core_grad.setColorAt(0.0, QColor(140, 170, 220))
+                    core_grad.setColorAt(1.0, QColor(30, 50, 80))
+                    stroke_pen = QPen(QColor(100, 130, 180, 100), 1.0)
 
-        # 6. Draw Nodes with Glowing Activation Fields
-        for pn in projected_nodes:
-            node = pn["data"]
-            sx = pn["sx"]
-            sy = pn["sy"]
-            depth = pn["depth"]
+                painter.setBrush(QBrush(core_grad))
+                painter.setPen(stroke_pen)
+                painter.drawEllipse(QPointF(sx, sy), base_radius, base_radius)
 
-            depth_scale = max(0.3, min(1.2, 5.0 / depth))
-            act = node.get("activation", 0.0)
+            # 7. Draw Layer Labels with clean staggered layout
+            painter.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
+            for layer_meta in self.graph.layer_metadata:
+                l_idx = layer_meta["idx"]
+                matched = [pn for pn in projected_nodes if pn["data"]["layer_idx"] == l_idx]
+                if matched:
+                    top_pn = min(matched, key=lambda pn: pn["sy"])
+                    y_offset = 24 if (l_idx % 2 == 0) else 44
+                    painter.setPen(QColor(0, 255, 200, 230) if l_idx == len(self.graph.layer_metadata) - 1 else QColor(130, 180, 230, 200))
+                    painter.drawText(
+                        int(top_pn["sx"] - 45),
+                        int(top_pn["sy"] - y_offset),
+                        f"{layer_meta['name']}",
+                    )
 
-            base_radius = (4.0 + act * 8.0) * depth_scale
-            if self.energy_burst > 0.0:
-                base_radius *= (1.0 + self.energy_burst * 0.2)
-
-            is_selected = (node["id"] == self.selected_node_id)
-            is_hovered = (self.hovered_node and node["id"] == self.hovered_node.get("id"))
-
-            # Outer glow radial gradient
-            glow_radius = base_radius * 2.5
-            glow = QRadialGradient(sx, sy, glow_radius)
-            if act > 0.6:
-                glow_color = QColor(0, 255, 180, int(140 * act))
-            elif act > 0.2:
-                glow_color = QColor(0, 180, 255, int(110 * act))
-            else:
-                glow_color = QColor(80, 100, 150, 40)
-
-            glow.setColorAt(0.0, glow_color)
-            glow.setColorAt(1.0, QColor(0, 0, 0, 0))
-
-            painter.setBrush(QBrush(glow))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(QPointF(sx, sy), glow_radius, glow_radius)
-
-            # Node Core
-            core_grad = QRadialGradient(sx - base_radius * 0.3, sy - base_radius * 0.3, base_radius)
-            if is_selected or is_hovered:
-                core_grad.setColorAt(0.0, QColor(255, 255, 255))
-                core_grad.setColorAt(1.0, QColor(255, 215, 0))
-                stroke_pen = QPen(QColor(255, 255, 255), 2.0)
-            elif act > 0.5:
-                core_grad.setColorAt(0.0, QColor(255, 255, 255))
-                core_grad.setColorAt(0.5, QColor(0, 255, 200))
-                core_grad.setColorAt(1.0, QColor(0, 150, 120))
-                stroke_pen = QPen(QColor(0, 255, 200, 180), 1.0)
-            else:
-                core_grad.setColorAt(0.0, QColor(140, 170, 220))
-                core_grad.setColorAt(1.0, QColor(30, 50, 80))
-                stroke_pen = QPen(QColor(100, 130, 180, 100), 1.0)
-
-            painter.setBrush(QBrush(core_grad))
-            painter.setPen(stroke_pen)
-            painter.drawEllipse(QPointF(sx, sy), base_radius, base_radius)
-
-        # 7. Draw Layer Labels
-        painter.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
-        painter.setPen(QColor(140, 170, 210, 200))
-        for layer_meta in self.graph.layer_metadata:
-            # Find representative node
-            l_idx = layer_meta["idx"]
-            matched = [pn for pn in projected_nodes if pn["data"]["layer_idx"] == l_idx]
-            if matched:
-                top_pn = min(matched, key=lambda pn: pn["sy"])
-                painter.drawText(
-                    int(top_pn["sx"] - 40),
-                    int(top_pn["sy"] - 20),
-                    f"{layer_meta['name']} ({layer_meta['units']})",
-                )
-
-        # 8. Overlay HUD (Camera & Node Telemetry)
-        self._draw_hud(painter, w, h)
+            # 8. Overlay HUD (Camera & Node Telemetry)
+            self._draw_hud(painter, w, h)
+        finally:
+            painter.end()
 
     def _draw_grid_plane(self, painter: QPainter, w: float, h: float) -> None:
         painter.setPen(QPen(QColor(40, 55, 80, 60), 1.0, Qt.PenStyle.DotLine))

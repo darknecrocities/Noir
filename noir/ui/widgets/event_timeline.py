@@ -79,7 +79,7 @@ class EventTimeline(QFrame):
     def add_event(self, event: NoirEvent) -> None:
         """Enqueue event for throttled batch UI flush."""
         # For high-frequency weights/metrics events, sample to avoid flooding
-        if event.event_type in (EventType.WEIGHTS_UPDATED, EventType.METRICS_UPDATED):
+        if event.event_type in (EventType.WEIGHTS_UPDATED, EventType.SYSTEM_METRICS_UPDATED):
             if event.training_step % 10 != 0:
                 return
 
