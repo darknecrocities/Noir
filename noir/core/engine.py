@@ -320,6 +320,7 @@ class NoirEngine:
         batch_size: int = 16,
         max_steps: int = 10000,
         parent_id: Optional[str] = None,
+        auto_start: bool = True,
     ) -> str:
         """Initialize and start real-time Causal Transformer learning on live internet data."""
         self.stop_training()
@@ -377,10 +378,16 @@ class NoirEngine:
             config=exp_config,
         )
 
-        self.experiment_repo.update_status(exp_record.id, "RUNNING")
-        self.trainer.start_training()
-        self.lifecycle.transition_to(LifecycleState.RUNNING)
-        logger.info("Open Web LLM experiment started on device %s (ID: %s)", self._get_device_str(), exp_record.id)
+        if auto_start:
+            self.experiment_repo.update_status(exp_record.id, "RUNNING")
+            self.trainer.start_training()
+            self.lifecycle.transition_to(LifecycleState.RUNNING)
+            logger.info("Open Web LLM experiment started on device %s (ID: %s)", self._get_device_str(), exp_record.id)
+        else:
+            self.experiment_repo.update_status(exp_record.id, "PAUSED")
+            self.lifecycle.transition_to(LifecycleState.READY)
+            logger.info("Open Web LLM experiment initialized for state restoration (ID: %s)", exp_record.id)
+
         return exp_record.id
 
     def start_autonomous_master_training(self, learning_rate: float = 0.0005) -> str:
@@ -540,6 +547,7 @@ class NoirEngine:
                 learning_rate=config.get("learning_rate", 0.0005),
                 batch_size=config.get("batch_size", 16),
                 max_steps=config.get("max_steps", 50000),
+                auto_start=False,
             )
         elif mode == "supervised":
             self.start_supervised_experiment(
@@ -549,24 +557,26 @@ class NoirEngine:
                 learning_rate=config.get("learning_rate", 0.001),
                 num_epochs=config.get("num_epochs", 100),
             )
+            if self.trainer:
+                self.trainer.pause()
         else:
             self.start_rl_experiment(
                 name=config.get("name", f"Recovered {exp_id}"),
                 env_id=config.get("env_id", "GridWorld-v0"),
                 learning_rate=config.get("learning_rate", 0.0003),
             )
+            if self.trainer:
+                self.trainer.pause()
 
-        # Pause trainer during weight restoration to prevent in-place mutation race conditions
-        if self.trainer:
-            self.trainer.pause()
-
-        # Restore weights & state
+        # Restore weights & state safely while model is idle
         self.load_checkpoint(ckpt_path)
 
-        if action == "load_only":
+        if action == "resume" and self.trainer:
+            self.experiment_repo.update_status(exp_id, "RUNNING")
+            self.trainer.start_training()
+            self.lifecycle.transition_to(LifecycleState.RUNNING)
+        else:
             self.pause_training()
-        elif self.trainer and action == "resume":
-            self.trainer.resume()
 
         return exp_id
 

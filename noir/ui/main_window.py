@@ -203,6 +203,18 @@ class NoirMainWindow(QMainWindow):
         exps = self.engine.experiment_repo.list_experiments()
         self.experiment_view.populate_experiments(exps)
         self.memory_view.populate_episodic(self.engine.memory_manager.episodic.get_salient_experiences())
+        if hasattr(self.engine, "trainer") and hasattr(self.engine.trainer, "streamer"):
+            for res in getattr(self.engine.trainer.streamer, "resource_history", []):
+                self.memory_view.add_or_update_source({
+                    "title": res.title,
+                    "url": res.url,
+                    "source_type": res.source_type,
+                    "character_count": res.character_count,
+                    "token_count": res.token_count,
+                    "text_snippet": res.text_snippet,
+                    "timestamp": res.timestamp,
+                    "status": "MASTERED",
+                })
 
     @Slot(object)
     def _on_event_received(self, event: NoirEvent) -> None:
@@ -228,13 +240,22 @@ class NoirMainWindow(QMainWindow):
                 self.dashboard_view.metrics_panel.add_reward_point(event.training_step, min(100.0, float(metrics["perplexity"])))
 
             if "article" in metrics:
-                self.dashboard_view.set_hypothesis_text(f"Reading Open Web Source: {metrics['article']}")
+                title = metrics["article"]
+                url = metrics.get("url", "")
+                self.dashboard_view.set_hypothesis_text(f"Reading Open Web Source: {title}")
+                self.memory_view.set_active_learning_source(title, url)
 
             self.system_bar.update_training_metrics(
                 step=event.training_step,
                 epoch=event.epoch,
                 loss=loss,
             )
+
+        elif event.event_type == EventType.KNOWLEDGE_INGESTED:
+            self.memory_view.add_or_update_source(event.payload)
+
+        elif event.event_type == EventType.SURPRISE_DETECTED:
+            self.memory_view.populate_episodic(self.engine.memory_manager.episodic.get_salient_experiences())
 
         elif event.event_type == EventType.REWARD_RECEIVED:
             reward = event.payload.get("reward")

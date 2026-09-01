@@ -12,6 +12,9 @@ import numpy as np
 import torch
 
 from noir.core.logging import get_logger
+from noir.events.event import NoirEvent
+from noir.events.event_bus import get_event_bus
+from noir.events.event_types import EventType
 
 logger = get_logger("datasets.open_web")
 
@@ -100,11 +103,35 @@ class OpenWebStreamer:
                             resources.append(res)
                             self.resource_history.append(res)
                             self._rehearsal_memory.append(clean_text)
+                            self._emit_knowledge_event(res)
                             logger.info("[LIVE WEB] Ingested Wikipedia: '%s' (%s) [%d chars]", safe_title, full_url, len(clean_text))
         except Exception as e:
             logger.debug("Wikipedia fetch notice: %s", e)
 
         return resources
+
+    def _emit_knowledge_event(self, res: WebResource) -> None:
+        """Publish KNOWLEDGE_INGESTED event for real-time GUI telemetry synchronization."""
+        try:
+            bus = get_event_bus()
+            bus.publish(
+                NoirEvent.create(
+                    EventType.KNOWLEDGE_INGESTED,
+                    experiment_id="autonomous",
+                    training_step=0,
+                    title=res.title,
+                    url=res.url,
+                    source_type=res.source_type,
+                    character_count=res.character_count,
+                    token_count=res.token_count,
+                    text_snippet=res.text_snippet,
+                    timestamp=res.timestamp,
+                    status="INGESTED",
+                ),
+                asynchronous=True,
+            )
+        except Exception:
+            pass
 
     def fetch_live_arxiv(self, limit: int = 3) -> List[WebResource]:
         """Fetch live computer science research abstracts from arXiv API."""
@@ -147,6 +174,7 @@ class OpenWebStreamer:
                             resources.append(res)
                             self.resource_history.append(res)
                             self._rehearsal_memory.append(clean_text)
+                            self._emit_knowledge_event(res)
                             logger.info("[LIVE WEB] Ingested arXiv Paper: '%s' (%s) [%d chars]", safe_title, paper_url, len(clean_text))
         except Exception as e:
             logger.debug("arXiv fetch notice: %s", e)

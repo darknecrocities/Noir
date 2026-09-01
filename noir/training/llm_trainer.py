@@ -123,7 +123,7 @@ class OpenWebLLMTrainer(BaseTrainer):
                 self._evaluate_validation_loss()
 
             # 6. Affective Mind Engine Update
-            if self.affective_engine:
+            if self.affective_engine and logits.dim() >= 2 and logits.size(1) > 0:
                 with torch.no_grad():
                     probs = torch.softmax(logits[:, -1, :], dim=-1).cpu().numpy()
                     self.affective_engine.update_from_supervised_step(
