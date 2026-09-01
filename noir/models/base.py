@@ -2,8 +2,12 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
+import warnings
 import torch
 import torch.nn as nn
+
+# Suppress PyTorch backward hook notification on leaf layers
+warnings.filterwarnings("ignore", message=".*Full backward hook is firing.*")
 
 from noir.core.logging import get_logger
 

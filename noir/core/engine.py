@@ -24,6 +24,7 @@ from noir.mind.affective_engine import AffectiveEngine
 from noir.models.actor_critic import ActorCriticNetwork
 from noir.models.base import NoirBaseModel
 from noir.models.mlp import NoirMLP
+from noir.models.transformer import NoirTransformerLM
 from noir.storage.checkpoint_manager import CheckpointManager
 from noir.storage.database import DatabaseManager
 from noir.storage.experiment_repository import ExperimentRepository
@@ -36,6 +37,7 @@ from noir.training.callbacks import (
     EventEmissionCallback,
     MetricsLoggingCallback,
 )
+from noir.training.llm_trainer import OpenWebLLMTrainer
 from noir.training.rl_trainer import RLTrainer
 from noir.training.supervised_trainer import SupervisedTrainer
 
@@ -303,6 +305,81 @@ class NoirEngine:
         self.trainer.start_training()
         self.lifecycle.transition_to(LifecycleState.RUNNING)
         logger.info("RL experiment started: %s (ID: %s)", name, exp_record.id)
+        return exp_record.id
+
+    def start_open_web_llm_experiment(
+        self,
+        name: str = "Open Web Live Internet LLM Stream",
+        vocab_size: int = 256,
+        block_size: int = 64,
+        embed_dim: int = 128,
+        n_layers: int = 4,
+        n_heads: int = 4,
+        learning_rate: float = 0.0005,
+        batch_size: int = 16,
+        max_steps: int = 10000,
+        parent_id: Optional[str] = None,
+    ) -> str:
+        """Initialize and start real-time Causal Transformer learning on live internet data."""
+        self.stop_training()
+
+        exp_config = {
+            "mode": "open_web_llm",
+            "name": name,
+            "vocab_size": vocab_size,
+            "block_size": block_size,
+            "embed_dim": embed_dim,
+            "n_layers": n_layers,
+            "n_heads": n_heads,
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "max_steps": max_steps,
+        }
+
+        exp_record = self.experiment_repo.create_experiment(
+            name=name,
+            config=exp_config,
+            parent_id=parent_id,
+        )
+        self.current_experiment_id = exp_record.id
+        self._update_subsystems_experiment_id(exp_record.id)
+
+        # 1. Instantiate Causal Transformer on GPU
+        self.model = NoirTransformerLM(
+            vocab_size=vocab_size,
+            block_size=block_size,
+            n_layers=n_layers,
+            n_heads=n_heads,
+            embed_dim=embed_dim,
+        )
+
+        callbacks = [
+            EventEmissionCallback(self.event_bus),
+            MetricsLoggingCallback(self.metrics_repo),
+            CheckpointCallback(
+                checkpoint_manager=self.checkpoint_manager,
+                interval_steps=self.config.training.checkpoint_interval_steps,
+                autosave_seconds=self.config.training.autosave_interval_seconds,
+            ),
+        ]
+
+        self.trainer = OpenWebLLMTrainer(
+            experiment_id=exp_record.id,
+            model=self.model,
+            learning_rate=learning_rate,
+            batch_size=batch_size,
+            block_size=block_size,
+            max_steps=max_steps,
+            device=self._get_device_str(),
+            callbacks=callbacks,
+            affective_engine=self.affective_engine,
+            config=exp_config,
+        )
+
+        self.experiment_repo.update_status(exp_record.id, "RUNNING")
+        self.trainer.start_training()
+        self.lifecycle.transition_to(LifecycleState.RUNNING)
+        logger.info("Open Web LLM experiment started on device %s (ID: %s)", self._get_device_str(), exp_record.id)
         return exp_record.id
 
     def pause_training(self) -> None:

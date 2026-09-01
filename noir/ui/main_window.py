@@ -152,7 +152,12 @@ class NoirMainWindow(QMainWindow):
 
     def _on_start_training(self, selection: str, lr: float) -> None:
         self.dashboard_view.metrics_panel.clear()
-        if selection.startswith("supervised"):
+        if selection == "llm:open_web" or selection.startswith("llm"):
+            self.engine.start_open_web_llm_experiment(
+                name="Open Web Live Internet LLM",
+                learning_rate=lr,
+            )
+        elif selection.startswith("supervised"):
             parts = selection.split(":")
             dataset_name = parts[1] if len(parts) > 1 else "digits"
             self.engine.start_supervised_experiment(
@@ -193,7 +198,7 @@ class NoirMainWindow(QMainWindow):
 
     @Slot(object)
     def _on_event_received(self, event: NoirEvent) -> None:
-        """Handle incoming typed events on the main Qt GUI thread."""
+        """Handle incoming typed events on the main Qt GUI thread with responsive throttling."""
         # 1. Update Timeline
         self.dashboard_view.event_timeline.add_event(event)
 
@@ -205,6 +210,12 @@ class NoirMainWindow(QMainWindow):
                 self.dashboard_view.metrics_panel.add_loss_point(event.training_step, float(loss))
             if "train_acc" in metrics:
                 self.dashboard_view.metrics_panel.add_reward_point(event.training_step, metrics["train_acc"])
+            elif "perplexity" in metrics:
+                # For LLM training: display log(perplexity) as metric curve
+                self.dashboard_view.metrics_panel.add_reward_point(event.training_step, min(100.0, float(metrics["perplexity"])))
+
+            if "article" in metrics:
+                self.dashboard_view.set_hypothesis_text(f"Reading Open Web Source: {metrics['article']}")
 
             self.system_bar.update_training_metrics(
                 step=event.training_step,

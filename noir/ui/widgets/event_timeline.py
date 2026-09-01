@@ -1,7 +1,9 @@
-"""Live streaming Event Timeline widget."""
+"""Live streaming Event Timeline widget with high-performance batch buffering."""
 
+from collections import deque
 from datetime import datetime
-from PySide6.QtCore import Qt
+from typing import List
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QFrame,
     QHeaderView,
@@ -64,42 +66,74 @@ class EventTimeline(QFrame):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         layout.addWidget(self.table)
 
+        # High-performance event ring buffer
+        self._event_queue: deque[NoirEvent] = deque(maxlen=200)
+        self._max_displayed_rows = 100
+
+        # Batch UI flush timer (updates at 10 Hz to prevent Qt event loop starvation)
+        self._flush_timer = QTimer(self)
+        self._flush_timer.setInterval(100)
+        self._flush_timer.timeout.connect(self._flush_pending_events)
+        self._flush_timer.start()
+
     def add_event(self, event: NoirEvent) -> None:
-        """Insert new event at the top of timeline."""
-        row = 0
-        self.table.insertRow(row)
+        """Enqueue event for throttled batch UI flush."""
+        # For high-frequency weights/metrics events, sample to avoid flooding
+        if event.event_type in (EventType.WEIGHTS_UPDATED, EventType.METRICS_UPDATED):
+            if event.training_step % 10 != 0:
+                return
 
-        time_str = datetime.fromtimestamp(event.timestamp).strftime("%H:%M:%S")
-        item_time = QTableWidgetItem(time_str)
-        item_time.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._event_queue.append(event)
 
-        item_type = QTableWidgetItem(event.event_type.value)
-        item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+    def _flush_pending_events(self) -> None:
+        """Flush enqueued events into table in a single atomic UI operation."""
+        if not self._event_queue:
+            return
 
-        # Style based on event type
-        if event.event_type == EventType.SURPRISE_DETECTED:
-            item_type.setForeground(Qt.GlobalColor.magenta)
-        elif event.event_type in (EventType.CHECKPOINT_CREATED, EventType.CHECKPOINT_LOADED):
-            item_type.setForeground(Qt.GlobalColor.cyan)
-        elif event.event_type == EventType.REWARD_RECEIVED:
-            item_type.setForeground(Qt.GlobalColor.green)
-        elif event.event_type == EventType.ERROR_OCCURRED:
-            item_type.setForeground(Qt.GlobalColor.red)
-        elif event.event_type == EventType.HYPOTHESIS_GENERATED:
-            item_type.setForeground(Qt.GlobalColor.yellow)
+        events_to_add: List[NoirEvent] = []
+        while self._event_queue:
+            events_to_add.append(self._event_queue.popleft())
 
-        item_step = QTableWidgetItem(str(event.training_step))
-        item_step.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table.setUpdatesEnabled(False)
+        try:
+            for event in reversed(events_to_add):
+                self.table.insertRow(0)
 
-        # Format details string
-        payload_summary = ", ".join(f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in list(event.payload.items())[:3])
-        item_details = QTableWidgetItem(payload_summary)
+                time_str = datetime.fromtimestamp(event.timestamp).strftime("%H:%M:%S")
+                item_time = QTableWidgetItem(time_str)
+                item_time.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.table.setItem(row, 0, item_time)
-        self.table.setItem(row, 1, item_type)
-        self.table.setItem(row, 2, item_step)
-        self.table.setItem(row, 3, item_details)
+                item_type = QTableWidgetItem(event.event_type.value)
+                item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Keep max 200 rows
-        if self.table.rowCount() > 200:
-            self.table.removeRow(self.table.rowCount() - 1)
+                if event.event_type == EventType.SURPRISE_DETECTED:
+                    item_type.setForeground(Qt.GlobalColor.magenta)
+                elif event.event_type in (EventType.CHECKPOINT_CREATED, EventType.CHECKPOINT_LOADED):
+                    item_type.setForeground(Qt.GlobalColor.cyan)
+                elif event.event_type == EventType.REWARD_RECEIVED:
+                    item_type.setForeground(Qt.GlobalColor.green)
+                elif event.event_type == EventType.ERROR_OCCURRED:
+                    item_type.setForeground(Qt.GlobalColor.red)
+                elif event.event_type == EventType.HYPOTHESIS_GENERATED:
+                    item_type.setForeground(Qt.GlobalColor.yellow)
+
+                item_step = QTableWidgetItem(str(event.training_step))
+                item_step.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                # Format details string cleanly
+                payload_summary = ", ".join(
+                    f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}"
+                    for k, v in list(event.payload.items())[:3]
+                )
+                item_details = QTableWidgetItem(payload_summary)
+
+                self.table.setItem(0, 0, item_time)
+                self.table.setItem(0, 1, item_type)
+                self.table.setItem(0, 2, item_step)
+                self.table.setItem(0, 3, item_details)
+
+            # Enforce max row cap
+            while self.table.rowCount() > self._max_displayed_rows:
+                self.table.removeRow(self.table.rowCount() - 1)
+        finally:
+            self.table.setUpdatesEnabled(True)

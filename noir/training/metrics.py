@@ -1,6 +1,6 @@
 """Numerical metric calculation utilities for real ML training."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,16 +13,22 @@ class MetricTracker:
         self.window_size = window_size
         self._history: Dict[str, List[float]] = {}
 
-    def update(self, name: str, value: float) -> None:
-        if name not in self._history:
-            self._history[name] = []
-        self._history[name].append(float(value))
-        if len(self._history[name]) > self.window_size:
-            self._history[name].pop(0)
+    def update(self, name_or_dict: str | Dict[str, Any], value: Optional[float] = None) -> None:
+        if isinstance(name_or_dict, dict):
+            for k, v in name_or_dict.items():
+                if isinstance(v, (int, float)):
+                    self.update(k, float(v))
+            return
+        if value is not None:
+            name = str(name_or_dict)
+            if name not in self._history:
+                self._history[name] = []
+            self._history[name].append(float(value))
+            if len(self._history[name]) > self.window_size:
+                self._history[name].pop(0)
 
     def update_dict(self, metrics: Dict[str, float]) -> None:
-        for k, v in metrics.items():
-            self.update(k, v)
+        self.update(metrics)
 
     def get_average(self, name: str) -> float:
         vals = self._history.get(name, [])
