@@ -79,19 +79,27 @@ class AffectiveEngine:
             is_surprised, raw_surprise, norm_surprise = self.surprise_detector.update(loss)
 
             # 4. Mathematical state updates
-            # Confidence increases with accuracy and low uncertainty
-            c_t = self.state.confidence * self.confidence_decay + 0.15 * accuracy - 0.1 * u_t
-            # Frustration grows with stagnation or high loss
-            f_t = self.state.frustration * self.frustration_decay + (0.05 * min(5, self._loss_stagnation_count) / 5.0)
-            # Satisfaction tracks performance improvements
-            s_t = self.state.satisfaction * 0.90 + 0.20 * max(0.0, loss_delta * 2.0) + 0.10 * accuracy
-            # Anticipation scales with learning progress
-            a_t = 0.5 + 0.3 * (accuracy - 0.5) - 0.2 * f_t
-            # Curiosity rises with uncertainty and surprise
-            x_t = 0.3 + 0.4 * u_t + 0.3 * norm_surprise
-            # Caution tracks uncertainty and high gradient shocks
-            ca_t = 0.2 + 0.5 * u_t + 0.3 * f_t
-            # Persistence remains resilient, slightly modulated by frustration
+            # Grounded Confidence: converges smoothly with loss reduction, low entropy, and prediction certainty
+            loss_factor = float(np.exp(-min(loss, 6.0) / 2.5))
+            target_confidence = 0.45 * loss_factor + 0.35 * (1.0 - u_t) + 0.20 * max(accuracy, conf_pred)
+            c_t = 0.85 * self.state.confidence + 0.15 * target_confidence
+
+            # Frustration grows with loss stagnation or high plateauing loss
+            f_t = self.state.frustration * self.frustration_decay + (0.08 * min(5, self._loss_stagnation_count) / 5.0)
+
+            # Satisfaction tracks steady loss reductions and high accuracy
+            s_t = 0.85 * self.state.satisfaction + 0.15 * (0.5 * loss_factor + 0.5 * max(0.0, min(1.0, loss_delta * 4.0)))
+
+            # Anticipation scales with positive learning velocity
+            a_t = 0.80 * self.state.anticipation + 0.20 * (0.5 + 0.3 * (accuracy - 0.5) + 0.2 * (1.0 - f_t))
+
+            # Curiosity rises with information entropy and novel surprises
+            x_t = 0.80 * self.state.curiosity + 0.20 * (0.4 * u_t + 0.4 * norm_surprise + 0.2 * (1.0 - c_t))
+
+            # Caution scales with high entropy and frustration
+            ca_t = 0.80 * self.state.caution + 0.20 * (0.5 * u_t + 0.3 * f_t + 0.2 * (1.0 - c_t))
+
+            # Persistence remains highly resilient (0.80 - 1.00)
             p_t = 0.85 + 0.15 * (1.0 - f_t)
 
             self._apply_and_emit(

@@ -92,11 +92,19 @@
 ## Mathematical Formulations
 
 ### 1. Affective State Vector (E_t)
-$$E_{t+1} = \text{clip}\left(\alpha E_t + \beta R_t + \gamma N_t + \delta U_t + \epsilon G_t, 0, 1\right)$$
-- $R_t$: Environment / task reward
-- $N_t$: State novelty (spatial hash density)
-- $U_t$: Predictive uncertainty
-- $G_t$: Goal progression
+$$\mathbf{e}_t = [K_t, U_t, C_t, S_t, F_t, Sa_t, A_t, Ca_t, P_t] \in [0.0, 1.0]^9$$
+- **$K_t$ (Confidence)**: Exponentially converging function of loss reduction, predictive certainty $\hat{p}_{\max}$, and low Shannon entropy.
+- **$U_t$ (Uncertainty)**: Normalized Shannon entropy across the categorical probability distribution: $H(p) / \ln(K)$.
+- **$C_t$ (Curiosity)**: Intrinsic novelty drive tracking unexplored entropy and perceptual surprises.
+- **$S_t$ (Surprise)**: Statistical z-score outlier shock relative to the moving loss distribution.
+- **$F_t$ (Frustration)**: Continuous metric tracking optimization plateaus and stagnant gradient updates ($\Delta \mathcal{L} < 10^{-4}$).
+- **$Sa_t$ (Satisfaction)**: Dynamic indicator of learning progress and positive loss reduction velocity.
+- **$A_t$ (Anticipation)**: Forward gradient momentum and expected improvement.
+- **$Ca_t$ (Caution)**: Gradient variance and shock sensitivity metric.
+- **$P_t$ (Persistence)**: Optimization resilience factor maintained between $[0.80, 1.00]$.
+
+> [!NOTE]
+> For a full mathematical breakdown with derivations, proofs, and cognitive ML rationale, see [**Cognitive & Affective Mathematics Specification**](docs/COGNITIVE_AFFECTIVE_MATHEMATICS.md).
 
 ### 2. Predictive Uncertainty (Entropy)
 $$H(p) = -\sum_{i=1}^K p_i \log(p_i)$$
